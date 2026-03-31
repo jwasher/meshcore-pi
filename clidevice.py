@@ -69,6 +69,7 @@ class CLIDevice(BasicMesh):
             return
 
         while True:
+            await asyncio.sleep(5)
             await self.tx_advert(flood=True, priority=Dispatch.PRIORITY_SCHEDULED_ADVERT)
             self.last_flood_advert = time.time()
             logger.debug("Scheduled flood advert sent")
@@ -379,16 +380,9 @@ class CLIDevice(BasicMesh):
         #  * is_admin?
         #  * Permissions (various PERM_ACL_ options, currently 0; PERM_ACL_GUEST)
         #  * random number (4 bytes)
-        data = bytes([packet.MC_Packet.RESP_SERVER_LOGIN_OK, 0, 1 if dest.admin else 0, 0]) + randbytes(4)
-
-        if rx_packet.is_flood():
-            # Return a PATH packet with the response
-            timestamp = struct.pack("<L", unique_time())
-
-            response = packet.MC_Path_Out(self.me, dest, rx_packet.path, response=timestamp+data)
-        else:
-            # Packet came direct, no need to tell the sender how to get here
-            response = packet.MC_Response_Out(self.me, dest, data)
+        acl = 3 if dest.admin else 2
+        data = bytes([packet.MC_Packet.RESP_SERVER_LOGIN_OK, 0, 1 if dest.admin else 0, acl]) + randbytes(4)
+        response = packet.MC_Response_Out(self.me, dest, data, rx_packet.timestamp)
 
         await self.transmit_packet(response)
 
